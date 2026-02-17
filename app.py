@@ -1,61 +1,33 @@
 import streamlit as st
-import numpy as np
+from keras.models import load_model
 from PIL import Image, ImageOps
-import os
-from tensorflow.keras.models import load_model
+import numpy as np
 
-# -----------------------------
-# Seiten-Einstellungen
-# -----------------------------
-st.set_page_config(
-    page_title="Hund oder Katze",
-    page_icon="🐾",
-    layout="centered"
-)
+# Einstellungen
+st.set_page_config(page_title="Hund vs. Katze", layout="centered")
+st.title("🐶 Hund oder 🐱 Katze?")
+st.write("Lade ein Bild hoch und das Modell sagt dir, was es ist.")
 
-# -----------------------------
-# modell laden (Cloud-sicher)
-# -----------------------------
+# Numpy Format
+np.set_printoptions(suppress=True)
+
+# Modell laden (Caching für Performance)
 @st.cache_resource
 def load_my_model():
-    base_path = os.path.dirname(os.path.abspath(__file__))
+    return load_model("keras_Model.h5", compile=False)
 
-    model_path = os.path.join(base_path, "keras_model.h5")
-    labels_path = os.path.join(base_path, "labels.txt")
+model = load_my_model()
 
-    if not os.path.exists(model_path):
-        st.error("❌ keras_model.h5 nicht gefunden!")
-        st.stop()
+# Labels laden
+class_names = open("labels.txt", "r").readlines()
 
-    if not os.path.exists(labels_path):
-        st.error("❌ labels.txt nicht gefunden!")
-        st.stop()
+# Bild Upload
+uploaded_file = st.file_uploader(
+    "📸 Bild hochladen (JPG / PNG)",
+    type=["jpg", "jpeg", "png"]
+)
 
-    model = load_model(model_path, compile=False)
-
-    with open(labels_path, "r") as f:
-        class_names = f.readlines()
-
-    return model, class_names
-
-
-model, class_names = load_my_model()
-
-# -----------------------------
-# UI
-# -----------------------------
-st.markdown("<h1 style='text-align:center;'>🐶🐱 Hund oder Katze?</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center;'>Lade ein Bild hoch und finde es heraus!</p>", unsafe_allow_html=True)
-
-st.divider()
-
-uploaded_file = st.file_uploader("📷 Bild hochladen", type=["jpg", "jpeg", "png"])
-
-# -----------------------------
-# Bild verarbeitet
-# -----------------------------
 if uploaded_file is not None:
-
     image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="Hochgeladenes Bild", use_container_width=True)
 
@@ -70,23 +42,11 @@ if uploaded_file is not None:
     data[0] = normalized_image_array
 
     # Vorhersage
-    prediction = model.predict(data, verbose=0)
+    prediction = model.predict(data)
     index = np.argmax(prediction)
-    confidence_score = float(prediction[0][index])
-
     class_name = class_names[index].strip()
+    confidence_score = prediction[0][index]
 
-    if " " in class_name:
-        class_name = class_name.split(" ", 1)[1]
-
-    st.divider()
-    st.markdown("## 🔎 Ergebnis")
-
-    if "Hund" in class_name:
-        st.success(f"🐶 {class_name}")
-    else:
-        st.info(f"🐱 {class_name}")
-
-    st.progress(confidence_score)
-    st.markdown(f"### 🎯 Sicherheit: {confidence_score * 100:.2f}%")
-
+    st.subheader("🔍 Ergebnis")
+    st.write(f"**Klasse:** {class_name}")
+    st.write(f"**Confidence:** {confidence_score:.2%}")
