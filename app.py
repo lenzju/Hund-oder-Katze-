@@ -14,17 +14,17 @@ st.set_page_config(
 )
 
 # -----------------------------
-# Modell laden (Cloud-sicher)
+# modell laden (Cloud-sicher)
 # -----------------------------
 @st.cache_resource
 def load_my_model():
     base_path = os.path.dirname(os.path.abspath(__file__))
 
-    model_path = os.path.join(base_path, "keras_Model.h5")
+    model_path = os.path.join(base_path, "keras_model.h5")
     labels_path = os.path.join(base_path, "labels.txt")
 
     if not os.path.exists(model_path):
-        st.error("❌ keras_Model.h5 nicht gefunden!")
+        st.error("❌ keras_model.h5 nicht gefunden!")
         st.stop()
 
     if not os.path.exists(labels_path):
