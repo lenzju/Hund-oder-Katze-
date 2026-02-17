@@ -1,63 +1,68 @@
 import streamlit as st
 import numpy as np
 from PIL import Image, ImageOps
+import os
 from tensorflow.keras.models import load_model
 
 # -----------------------------
-# Seiten-Config (modern)
+# Seiten-Einstellungen
 # -----------------------------
 st.set_page_config(
-    page_title="🐶🐱 Hunde oder Katze?",
+    page_title="Hund oder Katze",
     page_icon="🐾",
     layout="centered"
 )
 
 # -----------------------------
-# Modell laden (einmalig)
+# Modell laden (Cloud-sicher)
 # -----------------------------
 @st.cache_resource
 def load_my_model():
-    model = load_model("keras_Model.h5", compile=False)
-    with open("labels.txt", "r") as f:
+    base_path = os.path.dirname(os.path.abspath(__file__))
+
+    model_path = os.path.join(base_path, "keras_Model.h5")
+    labels_path = os.path.join(base_path, "labels.txt")
+
+    if not os.path.exists(model_path):
+        st.error("❌ keras_Model.h5 nicht gefunden!")
+        st.stop()
+
+    if not os.path.exists(labels_path):
+        st.error("❌ labels.txt nicht gefunden!")
+        st.stop()
+
+    model = load_model(model_path, compile=False)
+
+    with open(labels_path, "r") as f:
         class_names = f.readlines()
+
     return model, class_names
+
 
 model, class_names = load_my_model()
 
 # -----------------------------
-# Titel
+# UI
 # -----------------------------
-st.markdown(
-    """
-    <h1 style='text-align: center;'>🐾 Hunde oder Katze?</h1>
-    <p style='text-align: center; font-size:18px;'>
-    Lade ein Bild hoch und finde es heraus!
-    </p>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("<h1 style='text-align:center;'>🐶🐱 Hund oder Katze?</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center;'>Lade ein Bild hoch und finde es heraus!</p>", unsafe_allow_html=True)
 
 st.divider()
 
-# -----------------------------
-# Datei-Upload
-# -----------------------------
-uploaded_file = st.file_uploader(
-    "📷 Bild hochladen",
-    type=["jpg", "jpeg", "png"]
-)
+uploaded_file = st.file_uploader("📷 Bild hochladen", type=["jpg", "jpeg", "png"])
 
 # -----------------------------
-# Wenn Bild hochgeladen wurde
+# Bild verarbeitet
 # -----------------------------
 if uploaded_file is not None:
-    image = Image.open(uploaded_file).convert("RGB")
 
+    image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="Hochgeladenes Bild", use_container_width=True)
 
     # Bild vorbereiten
     size = (224, 224)
     image = ImageOps.fit(image, size, Image.Resampling.LANCZOS)
+
     image_array = np.asarray(image)
     normalized_image_array = (image_array.astype(np.float32) / 127.5) - 1
 
@@ -69,20 +74,19 @@ if uploaded_file is not None:
     index = np.argmax(prediction)
     confidence_score = float(prediction[0][index])
 
-    class_name = class_names[index].strip().split(" ", 1)[1]
+    class_name = class_names[index].strip()
+
+    if " " in class_name:
+        class_name = class_name.split(" ", 1)[1]
 
     st.divider()
-
-    # Ergebnis modern anzeigen
     st.markdown("## 🔎 Ergebnis")
 
     if "Hund" in class_name:
-        st.success(f"🐶 **{class_name}** erkannt!")
+        st.success(f"🐶 {class_name}")
     else:
-        st.info(f"🐱 **{class_name}** erkannt!")
+        st.info(f"🐱 {class_name}")
 
     st.progress(confidence_score)
+    st.markdown(f"### 🎯 Sicherheit: {confidence_score * 100:.2f}%")
 
-    st.markdown(
-        f"### 🎯 Sicherheit: **{confidence_score*100:.2f}%**"
-    )
